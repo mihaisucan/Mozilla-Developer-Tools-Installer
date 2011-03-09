@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<RDF xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#" 
+     xmlns:em="http://www.mozilla.org/2004/em-rdf#">
+    <Description about="urn:mozilla:install-manifest">
+        <em:id>mozilla-devtools-installer@robodesign.ro</em:id>
+        <em:name>Developer tools installer</em:name>
+        <em:version>0.1</em:version>
+        <em:description>Developer tools installer</em:description>
+        <em:creator>Mihai Șucan</em:creator>
+        <em:homepageURL>https://github.com/mihaisucan/mozilla-devtools-installer</em:homepageURL>
+        <em:iconURL>chrome://devtools/content/icon-48.png</em:iconURL>
+        <em:icon64URL>chrome://devtools/content/icon-64.png</em:icon64URL>
+        <em:type>2</em:type> <!-- type=extension --> 
+        <em:bootstrap>true</em:bootstrap>
+
+        <em:targetApplication>
+           <!-- Firefox -->
+           <Description>
+                <em:id>{ec8030f7-c20a-464f-9b0e-13a3a9e97384}</em:id>
+                <em:minVersion>4.0b1</em:minVersion>
+                <em:maxVersion>4.0.*</em:maxVersion>
+           </Description>
+        </em:targetApplication>
+    </Description>
+</RDF>
