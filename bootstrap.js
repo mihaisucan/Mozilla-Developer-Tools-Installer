@@ -41,9 +41,13 @@ const Cu = Components.utils;
 
 const NS_XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const MIME_XPI = "application/x-xpinstall";
+const BROWSER_XUL = "chrome://browser/content/browser.xul";
+
+// FIXME: figure out which pages we load, if we load anything.
 const DEVTOOLS_POST_INSTALL_PAGE = "http://mozilla.org/devtools-post-install";
 const DEVTOOLS_POST_UPGRADE_PAGE = "http://mozilla.org/devtools-post-upgrade";
 
+// FIXME: put here actual devtools we want.
 const DEVTOOLS_ADDONS = {
   uaswitcher: {
     id: "{e968fc70-8f95-4ab9-9e79-304de2a71ee1}",
@@ -54,14 +58,55 @@ const DEVTOOLS_ADDONS = {
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
 
-let recentWindow = Services.wm.getMostRecentWindow("navigator:browser");
-let gBrowser = recentWindow ? recentWindow.gBrowser : null;
-
 // TODO: check if Firefox is beta or not.
 let isBetaBrowser = false;
 
 // TODO: implement devtools channel switcher.
 let isBetaTools = false;
+
+function install(aData, aReason) { /* nothing to do */ }
+
+function startup(aData, aReason) {
+  performInstallUpgrade(aData, aReason);
+
+  let windows = Services.wm.getEnumerator("navigator:browser");
+  while (windows.hasMoreElements()) {
+    let window = windows.getNext();
+    if (window.location.href == BROWSER_XUL) {
+      applyWindowOverlay(window);
+    }
+  }
+
+  Services.ww.registerNotification(windowObserver);
+}
+
+function shutdown(aData, aReason) {
+  Services.ww.unregisterNotification(windowObserver);
+
+  let windows = Services.wm.getEnumerator("navigator:browser");
+  while (windows.hasMoreElements()) {
+    let window = windows.getNext();
+    if (window.location.href == BROWSER_XUL) {
+      undoWindowOverlay(window);
+    }
+  }
+}
+
+function uninstall(aData, aReason) {
+  if (aReason != ADDON_UNINSTALL) {
+    return;
+  }
+
+  // Uninstall the Developer Tools.
+  for (let tool in DEVTOOLS_ADDONS) {
+    AddonManager.getAddonByID(DEVTOOLS_ADDONS[tool].id,
+      function(aAddon) {
+        if (aAddon && aAddon.uninstall) {
+          aAddon.uninstall();
+        }
+      });
+  }
+}
 
 function performInstallUpgrade(aData, aReason) {
   let page;
@@ -83,8 +128,10 @@ function performInstallUpgrade(aData, aReason) {
       }, MIME_XPI);
   }
 
-  if (gBrowser) {
-    gBrowser.selectedTab = gBrowser.addTab(page);
+  let window = Services.wm.getMostRecentWindow("navigator:browser");
+
+  if (window && window.gBrowser) {
+    window.gBrowser.selectedTab = window.gBrowser.addTab(page);
   }
 }
 
@@ -94,14 +141,28 @@ function performSwitchDevTools() {
 }
 
 
-function startup(aData, aReason) {
-  performInstallUpgrade(aData, aReason);
+let windowObserver = {
+  observe: function windowObserver_observe(aSubject, aTopic, aData)
+  {
+    if (aTopic == "domwindowopened" && aSubject instanceof Ci.nsIDOMWindow) {
+      aSubject.addEventListener("load", function(aEvent) {
+        aSubject.removeEventListener("load", arguments.callee, false);
+        if (aSubject.location.href == BROWSER_XUL) {
+          applyWindowOverlay(aSubject);
+        }
+      }, false);
+    }
+  }
+};
 
-  // TODO: we need a window observer that changes the menu each time a new
-  // window is open. Yay!
-  let document = recentWindow.document;
+function applyWindowOverlay(window) {
+  let document = window.document;
 
   let cmdInstall = document.getElementById("Tools:InstallDevTools");
+  if (!cmdInstall) {
+    return;
+  }
+
   let cmdSwitch = document.createElementNS(NS_XUL, "command");
   let appMenuInstall = document.getElementById("appmenu_installDevTools");
   let appMenuSwitch = document.createElementNS(NS_XUL, "menuitem");
@@ -135,11 +196,15 @@ function startup(aData, aReason) {
   commands.appendChild(cmdSwitch);
 }
 
-function shutdown(aData, aReason) {
-  let document = recentWindow.document;
+function undoWindowOverlay(window) {
+  let document = window.document;
 
   let cmdInstall = document.getElementById("Tools:InstallDevTools");
   let cmdSwitch = document.getElementById("Tools:SwitchDevTools");
+  if (!cmdInstall || !cmdSwitch) {
+    return;
+  }
+
   let appMenuInstall = document.getElementById("appmenu_installDevTools");
   let appMenuSwitch = document.getElementById("appmenu_switchDevTools");
   let toolsMenuInstall = document.getElementById("menu_installDevTools");
@@ -157,21 +222,5 @@ function shutdown(aData, aReason) {
 
   let commands = cmdSwitch.parentNode;
   commands.removeChild(cmdSwitch);
-}
-
-function uninstall(aData, aReason) {
-  if (aReason != APP_UNINSTALL) {
-    return;
-  }
-
-  // Uninstall the Developer Tools.
-  for (let tool in DEVTOOLS_ADDONS) {
-    AddonManager.getAddonByID(DEVTOOLS_ADDONS[tool].id,
-      function(aAddon) {
-        if (aAddon.uninstall) {
-          aAddon.uninstall();
-        }
-      });
-  }
 }
 

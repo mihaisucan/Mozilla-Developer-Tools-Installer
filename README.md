@@ -2,7 +2,7 @@
 
 ## Description ##
 
-This extension installs the default package of developer tools in Firefox.
+This extension installs the default set of developer tools in Firefox.
 
 ## License ##
 
